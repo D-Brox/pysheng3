@@ -1,35 +1,42 @@
 *NOTE: Pysheng is lightly developed, but maintence patches are welcomed.*
 
-Download books from Google Books as PNG images. It can be run either from the command-line or using a simple GUI (graphical interface). It should work out-of-the box for Unix systems (GNU/Linux, BSD) and (hopefully) for Windows.
+Download books from Google Books as PNG images. It can be run either from the command-line or using a simple GUI (graphical interface). It should work out-of-the box for Unix systems (GNU/Linux, BSD) and (hopefully) for Windows. Ported to python3.
+
 
 Install
 =======
 
+### Install dependencies:
+
+```
+$ sudo apt install libgirepository1.0-dev gcc libcairo2-dev pkg-config python3-dev gir1.2-gtk-3.0
+```
+
+### Install Pysheng
+
 For UNIX systems:
 
 ```
-$ wget http://pysheng.googlecode.com/files/pysheng-VERSION.tgz
-$ tar xvzf pysheng-VERSION.tgz
-$ cd pysheng-VERSION
+$ git clone https://github.com/D-Brox/pysheng/
+$ pip3 install -r requirements.txt
 ```
-
 To install locally:
 
 ```
-$ python setup.py install --user
+$ python3 setup.py install --user
 ```
 
 To install system-wide:
 
 ```
-$ sudo python setup.py install
+$ sudo python3 setup.py install
 ```
 
 Usage
 =====
 
-Using the GUI
-=============
+### Using the GUI
+
 
 Note that in order to save a PDF you need [ReportLab](http://www.reportlab.com/software/opensource/) installed.
 
@@ -39,8 +46,8 @@ $ pysheng-gui
 
 http://pysheng.googlecode.com/svn/wiki/screenshot1.png
 
-Command line
-============
+### Command line
+
 
  * Download a whole book:
 

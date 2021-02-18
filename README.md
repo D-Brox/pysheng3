@@ -1,4 +1,6 @@
-Port of https://github.com/pysheng/pysheng for python3
+# Pysheng3
+
+A simple port of https://github.com/pysheng/pysheng for python3
 
 Download books from Google Books as PNG images. It can be run either from the command-line or using a simple GUI (graphical interface). It should work out-of-the box for Unix systems (GNU/Linux, BSD) and (hopefully) for Windows.
 

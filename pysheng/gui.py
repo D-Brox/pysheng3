@@ -22,20 +22,23 @@ import time
 import glob
 import traceback
 import functools
-import StringIO
+from io import StringIO, BytesIO
 import string
 import imghdr
 
-import gtk
-import gtk.glade
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk
 import gobject
 
 from pysheng import lib
 from pysheng import asyncjobs
+from pysheng.download import get_id_from_string, get_cover_url, get_page_url,get_image_url_from_page
+from pysheng.download import get_info as get_info_download
 from pysheng.yieldfrom import supergenerator, _from
 import pysheng
 
-HEADERS = {"User-Agent": pysheng.AGENT}
+HEADERS = {"User-Agent": "Chrome 5.0"}
 
 
 def get_max_filename_length():
@@ -65,7 +68,7 @@ def createfile(output_path, image_data):
 
 
 def set_sensitivity(widgets, **kwargs):
-    for key, value in kwargs.iteritems():
+    for key, value in kwargs.items():
         getattr(widgets, key).set_sensitive(value)
 
 
@@ -75,7 +78,7 @@ def get_debug_func(widgets):
     def _debug(line):
         stime = time.strftime("%H:%M:%S", time.localtime())
         buf.insert(buf.get_end_iter(), "[%s] %s\n" % (stime, line))
-        widgets.log.scroll_to_iter(buf.get_end_iter(), 0)
+        widgets.log.scroll_to_iter(buf.get_end_iter(), 0,True,0,0)
     return _debug
 
 
@@ -126,8 +129,8 @@ def get_info(widgets, url, opener):
         url, opener, headers=HEADERS,
         elapsed_cb=functools.partial(on_elapsed, widgets, "info"))
     try:
-        info = pysheng.get_info(html)
-    except ValueError, detail:
+        info = get_info_download(html)
+    except ValueError as detail:
         debug("Error parsing page HTML: %s" % str(detail))
         raise
     debug("Info: attribution=%s" % info["attribution"])
@@ -151,9 +154,9 @@ def download_book(widgets, state, url, page_start=0, page_end=None):
         debug("Page_start: %s, Page end: %s" %
               (adj_int(page_start, +1, 1), adj_int(page_end, +1, "last")))
         opener = lib.get_cookies_opener()
-        book_id = pysheng.get_id_from_string(url)
+        book_id = get_id_from_string(url)
         debug("Book ID: %s" % book_id)
-        cover_url = pysheng.get_cover_url(book_id)
+        cover_url = get_cover_url(book_id)
         widgets.progress_all.set_fraction(0.0)
         widgets.progress_all.set_text('')
         widgets.progress_current.set_pulse_step(0.04)
@@ -189,26 +192,26 @@ def download_book(widgets, state, url, page_start=0, page_end=None):
                                  len(page_ids))))
             header = "[%d/%d] " % (relative_page, len(page_ids))
             debug(header + "Start page: %d (page_id: %s)" % (page+1, page_id))
-            page_url = pysheng.get_page_url(info["prefix"], page_id)
+            page_url = get_page_url(info["prefix"], page_id)
             debug(header + "Download page contents: %s" % (page_url))
             widgets.progress_current.set_fraction(0.0)
             page_html = yield asyncjobs.ProgressDownloadThreadedTask(
                 page_url, opener, headers=HEADERS,
                 elapsed_cb=functools.partial(on_elapsed, widgets, "page"))
 
-            image_url0 = pysheng.get_image_url_from_page(page_html)
+            image_url0 = get_image_url_from_page(page_html)
             if not image_url0:
                 debug("No image for this page, access may be restricted")
             else:
                 width, height = info["max_resolution"]
-                image_url = re.sub("w=(\d+)", "w=" + str(width), image_url0)
+                image_url = re.sub(b"w=(\d+)", "w=" + str(width), image_url0)
+                image_url = image_url.decode("ascii").replace('\\x3d','=').replace('\\x26','&')
                 debug(header + "Download page image: %s" % image_url)
                 widgets.progress_current.set_fraction(0.0)
                 image_data = yield asyncjobs.ProgressDownloadThreadedTask(
                     image_url, opener, headers=HEADERS,
                     elapsed_cb=functools.partial(on_elapsed, widgets, "image"))
-                image_format = imghdr.what(StringIO.StringIO(image_data)) or \
-                    "png"
+                image_format = imghdr.what(BytesIO(image_data)) or "png"
                 debug(header + "Image downloaded (size=%d, format=%s)" %
                       (len(image_data), image_format))
                 output_path_with_extension = output_path + "." + image_format
@@ -230,11 +233,11 @@ def download_book(widgets, state, url, page_start=0, page_end=None):
         set_sensitivity(widgets, savepdf=True)
     except asyncjobs.JobCancelled:
         return
-    except Exception, detail:
+    except Exception as detail:
         traceback.print_exc()
         debug("job error: %s" % detail)
         restart_buttons(widgets)
-
+    
 
 @supergenerator
 def check_book(widgets, url):
@@ -243,9 +246,9 @@ def check_book(widgets, url):
     debug("Checking book: %s" % url)
     try:
         opener = lib.get_cookies_opener()
-        book_id = pysheng.get_id_from_string(url)
+        book_id = get_id_from_string(url)
         debug("Book ID: %s" % book_id)
-        cover_url = pysheng.get_cover_url(book_id)
+        cover_url = get_cover_url(book_id)
         set_book_info(widgets, None)
         info = yield _from(get_info(widgets, cover_url, opener))
         widgets.page_start.set_text(str(1))
@@ -254,7 +257,7 @@ def check_book(widgets, url):
         restart_buttons(widgets)
     except asyncjobs.JobCancelled:
         return
-    except Exception, detail:
+    except Exception as detail:
         traceback.print_exc()
         debug(Exception(detail))
         debug("Check book error")
@@ -313,7 +316,7 @@ def on_page_end__activate(entry, widgets, state):
 def clean_exit(widgets, state):
     if state.download_job and state.download_job.is_alive():
         state.download_job.cancel()
-    gtk.main_quit()
+    Gtk.main_quit()
 
 
 def on_exit__clicked(button, widgets, state):
@@ -337,14 +340,14 @@ def on_browse_destdir__clicked(button, widgets, state):
     directory = os.path.expanduser(widgets.destdir.get_text())
     if not os.path.isdir(directory):
         directory = os.path.expanduser("~")
-    chooser = gtk.FileChooserDialog(
+    chooser = Gtk.FileChooserDialog(
         title="Select destination directory",
-        action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
-        buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_OPEN,
-                 gtk.RESPONSE_OK))
+        action=Gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
+        buttons=(Gtk.STOCK_CANCEL, Gtk.RESPONSE_CANCEL, Gtk.STOCK_OPEN,
+                 Gtk.RESPONSE_OK))
     chooser.set_current_folder(widgets.destdir.get_text())
     response = chooser.run()
-    if response == gtk.RESPONSE_OK:
+    if response == Gtk.RESPONSE_OK:
         directory = chooser.get_filename()
         widgets.destdir.set_text(directory)
     chooser.destroy()
@@ -361,22 +364,22 @@ def on_savepdf__clicked(button, widgets, state):
         widgets.debug('You need to install ReportLab '
                       '(http://www.reportlab.com/) to create a PDF')
         return
-    chooser = gtk.FileChooserDialog(
+    chooser = Gtk.FileChooserDialog(
         title="Save PDF",
-        action=gtk.FILE_CHOOSER_ACTION_SAVE,
-        buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_SAVE,
-                 gtk.RESPONSE_OK))
+        action=Gtk.FILE_CHOOSER_ACTION_SAVE,
+        buttons=(Gtk.STOCK_CANCEL, Gtk.RESPONSE_CANCEL, Gtk.STOCK_SAVE,
+                 Gtk.RESPONSE_OK))
     chooser.set_current_folder(widgets.destdir.get_text())
     chooser.set_current_name(state.pdf_filename)
     chooser.set_do_overwrite_confirmation(True)
     response = chooser.run()
-    if response == gtk.RESPONSE_OK:
+    if response == Gtk.RESPONSE_OK:
         output_pdf = chooser.get_filename()
         try:
             lib.create_pdf_from_images(state.downloaded_images, output_pdf,
                                        pagesize=pagesizes.A4, margin=0*cm)
             widgets.debug("PDF written: %s" % output_pdf)
-        except Exception, exception:
+        except Exception as exception:
             traceback.print_exc()
             widgets.debug("error creating PDF: %s" % exception)
     chooser.destroy()
@@ -398,7 +401,7 @@ def set_callbacks(namespace, widgets, state):
         "browse_destdir": "clicked",
         "savepdf": "clicked",
     }
-    for widget_name, signals in callbacks_mapping.iteritems():
+    for widget_name, signals in callbacks_mapping.items():
         if isinstance(signals, str):
             signals = [signals]
         for signal in signals:
@@ -417,10 +420,11 @@ def view_init(widgets):
 
 
 def load_glade(filename, root, widget_names):
-    wtree = gtk.glade.XML(filename, root)
+    wtree = Gtk.Builder()
+    wtree.add_from_file(filename)
     dwidgets = {}
     for name in widget_names:
-        widget = wtree.get_widget(name)
+        widget = wtree.get_object(name)
         if not widget:
             raise ValueError('Widget name not found: %s' % name)
         dwidgets[name] = widget
@@ -436,11 +440,11 @@ def run(book_url=None):
     ]
     currentdir = os.path.join(os.path.dirname(__file__))
     testpaths = [currentdir,
-                 os.path.expanduser("~/.local/share/pysheng"),
+                 os.path.expanduser("/home/davidfbg/.local/share/pysheng"),
                  "/usr/local/share/pysheng",
-                 "/usr/share/pysheng"]
+                 "/usr/share/pysheng","/home/davidfbg/pysheng/pysheng"]
     for dirname in testpaths:
-        filepath = os.path.join(dirname, "main.glade")
+        filepath = os.path.join(dirname, "main.ui")
         if os.path.isfile(filepath):
             break
     else:
@@ -460,7 +464,7 @@ def run(book_url=None):
 def main(args):
     widgets, state = run(args[0] if args else None)
     widgets.window.show_all()
-    gtk.main()
+    Gtk.main()
 
 
 if __name__ == '__main__':

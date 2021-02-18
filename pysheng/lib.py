@@ -15,8 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this software.  If not, see <http://www.gnu.org/licenses/>
 
-import cookielib
-import urllib2
+import http.cookiejar as cookielib
+import urllib.request as urllib2
 import urllib
 import errno
 import sys

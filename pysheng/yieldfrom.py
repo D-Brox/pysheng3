@@ -34,10 +34,10 @@ def supergenerator(genfunc):
                 while 1:
                     try:
                         nested_yielded = nested_gen.send(nested_tosend)
-                    except StopIteration, exc:
+                    except StopIteration as exc:
                         new_tosend = (exc.args[0] if exc.args else None)
                         break
-                    except Exception, exc:
+                    except Exception as exc:
                         yielded.genfunc.close()
                         yielded2 = gen.throw(exc)
                         new_tosend = (yield yielded2)

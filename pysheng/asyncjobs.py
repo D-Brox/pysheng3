@@ -33,12 +33,14 @@ http://code.activestate.com/recipes/577129-run-asynchronous-tasks-using-coroutin
 
 import time
 from threading import Thread, Event
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from io import BytesIO
-import urllib2
+import urllib.request as urllib2
 import functools
 
-import gobject
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import GObject as gobject
 gobject.threads_init()
 
 JobCancelled = GeneratorExit
@@ -137,10 +139,10 @@ class Job:
     def _advance_task_step(self, generator, method, result):
         try:
             new_task = getattr(generator, method)(result)
-        except StopIteration, exc:
+        except StopIteration as exc:
             self._state = "finished"
             return None, None, None
-        except Exception, exc:
+        except Exception as exc:
             generator.close()
             self._state = "finished"
             raise
@@ -172,7 +174,7 @@ def propagate_exceptions(method_or_task):
     def _propagate_wrapper(task, function, *args, **kwargs):
         try:
             return function(*args, **kwargs)
-        except Exception, exc:
+        except Exception as exc:
             task.exception_cb(exc)
             raise
             # return
@@ -297,7 +299,7 @@ class ThreadedTask(Task):
         fun, args, kwargs = function
         try:
             result = fun(*args, **kwargs)
-        except Exception, exc:
+        except Exception as exc:
             queue.put(("exception", exc))
             raise
         queue.put(("return", result))
@@ -313,10 +315,10 @@ def connect_opener(url, opener=None, headers=None):
     """Connect an opener to a url and return (response, content-length)."""
     opener = opener or urllib2.build_opener()
     request = (url if isinstance(url, urllib2.Request) else build_request(url))
-    for key, value in (headers or {}).iteritems():
+    for key, value in (headers or {}).items():
         request.add_header(key, value)
     response = opener.open(request)
-    content_length = response.headers.getheaders("Content-Length")
+    content_length = response.headers.get("Content-Length")
     return response, (int(content_length[0]) if content_length else None)
 
 
@@ -417,6 +419,6 @@ class ProgressDownloadThreadedTask(Task):
                 self.queue.put(dict(key="data", data=data, size=size))
                 if not data:
                     break
-        except Exception, exc:
+        except Exception as exc:
             self.queue.put(dict(key="exception", exception=exc))
             raise

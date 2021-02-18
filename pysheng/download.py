@@ -19,7 +19,7 @@ import os
 import re
 import sys
 import itertools
-import HTMLParser
+from html.parser import HTMLParser
 
 try:
     # Python >= 2.6
@@ -27,7 +27,7 @@ try:
 except ImportError:
     import simplejson as json
 
-import lib
+import pysheng.lib
 
 AGENT = "Chrome 5.0"
 
@@ -55,24 +55,22 @@ def get_cover_url(book_id):
 
 
 def get_unescape_entities(s):
-    parser = HTMLParser.HTMLParser()
+    parser = HTMLParser()
     return parser.unescape(s)
 
 
 def get_info(cover_html):
     """Return dictionary with the book information.
-
     Include the prefix, page_ids, title and attribution."""
-    tag = lib.first(s for s in cover_html.split("<")
-                    if re.search('input[^>]*\s+name="?ie"?', s))
+    tag = pysheng.lib.first(s for s in cover_html.split(b"<") if re.search(b'input[^>]*\s+name="?ie"?', s))
     if tag:
-        match = re.search('value="(.*?)"', tag)
+        match = re.search(b'value="(.*?)"', tag)
         if not match:
             raise ParsingError('Cannot find encoding info')
         encoding = match.group(1).lower()
     else:
         encoding = "iso8859-15"
-    match = re.search(r'_OC_Run\((.*?)\);', cover_html)
+    match = re.search(r'_OC_Run\((.*?)\);', cover_html.decode("iso8859-15"))
     if not match:
         raise ParsingError('No JS function OC_Run() found in HTML')
     oc_run_args = json.loads("[%s]" % match.group(1), encoding=encoding)
@@ -86,7 +84,7 @@ def get_info(cover_html):
                                          key=lambda d: d["order"])]
     if not page_ids:
         raise ParsingError('No page_ids found')
-    prefix = pages_info["prefix"].decode("raw_unicode_escape")
+    prefix = pages_info["prefix"]
     mw = book_info["max_resolution_image_width"]
     mh = book_info["max_resolution_image_height"]
     return {
@@ -101,14 +99,14 @@ def get_info(cover_html):
 
 def get_image_url_from_page(html):
     """Get image from a page html."""
-    if "/googlebooks/restricted_logo.gif" in html:
+    if b"/googlebooks/restricted_logo.gif" in html:
         return
     else:
-        match = re.search(r"preloadImg.src = '([^']*?)'", html)
+        match = re.search(b"preloadImg.src = '([^']*?)'", html)
         if not match:
             raise ParsingError('No image found in HTML page')
         else:
-            return match.group(1).decode("string-escape")
+            return match.group(1)
 
 
 def get_page_url(prefix, page_id):
@@ -116,11 +114,11 @@ def get_page_url(prefix, page_id):
 
 
 def download(*args, **kwargs):
-    return lib.download(*args, **dict(kwargs, agent=AGENT))
+    return pysheng.lib.download(*args, **dict(kwargs, agent=AGENT))
 
 
 def get_info_from_url(url):
-    opener = lib.get_cookies_opener()
+    opener = pysheng.lib.get_cookies_opener()
     cover_url = get_cover_url(get_id_from_string(url))
     cover_html = download(cover_url, opener=opener)
     return get_info(cover_html)
@@ -130,7 +128,7 @@ def download_book(url, page_start=0, page_end=None):
     """Yield tuples (info, page, image_data) for each page of the book
        <url> from <page_start> to <page_end>"""
     info = get_info_from_url(url)
-    opener = lib.get_cookies_opener()
+    opener = pysheng.lib.get_cookies_opener()
     page_ids = itertools.islice(info["page_ids"], page_start, page_end)
 
     for page0, page_id in enumerate(page_ids):
@@ -140,7 +138,7 @@ def download_book(url, page_start=0, page_end=None):
         image_url0 = get_image_url_from_page(page_html)
         if image_url0:
             width, height = info["max_resolution"]
-            image_url = re.sub("w=(\d+)", "w=" + str(width), image_url0)
+            image_url = re.sub(b"w=(\d+)", "w=" + str(width), image_url0)
             image_data = download(image_url, opener=opener)
             yield info, page, image_data
 
@@ -170,7 +168,7 @@ def main(args):
         output_directory = args.output_directory
     else:
         output_directory = "%(attribution)s - %(title)s" % namespace
-    lib.mkdir_p(output_directory)
+    pysheng.lib.mkdir_p(output_directory)
 
     for page_info, page, image_data in\
             download_book(url, args.page_start - 1, args.page_end):
@@ -180,9 +178,9 @@ def main(args):
                  args.noredownload)):
             open(output_path, "wb").write(image_data)
             if not args.quiet:
-                print 'Downloaded {}'.format(output_path.encode('utf-8'))
+                print ('Downloaded {}'.format(output_path.encode('utf-8')))
         elif not args.quiet:
-            print 'Output file {} exists'.format(output_path.encode('utf-8'))
+            print ('Output file {} exists'.format(output_path.encode('utf-8')))
 
 
 if __name__ == '__main__':

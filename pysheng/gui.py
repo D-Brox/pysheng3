@@ -440,9 +440,7 @@ def run(book_url=None):
     ]
     currentdir = os.path.join(os.path.dirname(__file__))
     testpaths = [currentdir,
-                 os.path.expanduser("/home/davidfbg/.local/share/pysheng"),
-                 "/usr/local/share/pysheng",
-                 "/usr/share/pysheng","/home/davidfbg/pysheng/pysheng"]
+                 "/usr/share/pysheng"]
     for dirname in testpaths:
         filepath = os.path.join(dirname, "main.ui")
         if os.path.isfile(filepath):

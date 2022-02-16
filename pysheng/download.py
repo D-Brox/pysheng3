@@ -19,7 +19,7 @@ import os
 import re
 import sys
 import itertools
-from html.parser import HTMLParser
+import html
 
 try:
     # Python >= 2.6
@@ -55,7 +55,7 @@ def get_cover_url(book_id):
 
 
 def get_unescape_entities(s):
-    parser = HTMLParser()
+    parser = html
     return parser.unescape(s)
 
 

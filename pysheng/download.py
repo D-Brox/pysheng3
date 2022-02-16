@@ -73,7 +73,7 @@ def get_info(cover_html):
     match = re.search(r'_OC_Run\((.*?)\);', cover_html.decode("iso8859-15"))
     if not match:
         raise ParsingError('No JS function OC_Run() found in HTML')
-    oc_run_args = json.loads("[%s]" % match.group(1), encoding=encoding)
+    oc_run_args = json.loads("[%s]" % match.group(1))
     if len(oc_run_args) < 2:
         raise ParsingError('Expecting at least 2 arguments in function: '
                            'OC_Run()')

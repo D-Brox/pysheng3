@@ -446,7 +446,7 @@ def run(book_url=None):
         if os.path.isfile(filepath):
             break
     else:
-        raise ValueError('cannot find glade file: main.glade')
+        raise ValueError('cannot find glade file: main.ui')
     widgets = load_glade(filepath, "window", widget_names)
     state = State()
     widgets.debug = get_debug_func(widgets)

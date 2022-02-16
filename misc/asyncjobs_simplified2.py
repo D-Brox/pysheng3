@@ -89,7 +89,7 @@ class ThreadedTask(Task):
 
     def _queue_manager(self, thread, queue):
         if queue.empty():
-            if not thread.isAlive():
+            if not thread.is_alive()():
                 # Thread is not active and the queue is empty: something went wrong!
                 self.exception_cb(TaskError)
                 return False

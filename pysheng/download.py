@@ -20,6 +20,7 @@ import re
 import sys
 import itertools
 from html.parser import HTMLParser
+import codecs
 
 try:
     # Python >= 2.6
@@ -42,16 +43,19 @@ def get_id_from_string(s):
         return s
     url = s
     match = re.search("[?&]?id=([^&]+)", url)
+    if match:
+        return match.group(1)
+    else:
+         match = re.search("[^/]+(?=\?)",url)
+         return match.group(0)
+         
     if not match:
-        raise ParsingError('Error extracting id query string from URL: %s' %
-                           url)
-    return match.group(1)
+        raise ParsingError(f'Error extracting id query string from URL: {url}')
 
 
 def get_cover_url(book_id):
-    url = "http://books.google.com/books"
-    return "%s?id=%s&hl=en&printsec=frontcover&source=gbs_ge_summary_r&cad=0" \
-           % (url, book_id)
+    url = "http://books.google.com/books/edition/_/"
+    return f"{url}{book_id}?hl=en&gbpv=1&printsec=frontcover"
 
 
 def get_unescape_entities(s):
@@ -99,10 +103,10 @@ def get_info(cover_html):
 
 def get_image_url_from_page(html):
     """Get image from a page html."""
-    if b"/googlebooks/restricted_logo.gif" in html:
+    if "/googlebooks/restricted_logo.gif" in html:
         return
     else:
-        match = re.search(b"preloadImg.src = '([^']*?)'", html)
+        match = re.search("preloadImg.src = '([^']*?)'", html)
         if not match:
             raise ParsingError('No image found in HTML page')
         else:
@@ -110,7 +114,7 @@ def get_image_url_from_page(html):
 
 
 def get_page_url(prefix, page_id):
-    return prefix + "&pg=" + page_id
+    return f'{prefix}&pg={page_id}'
 
 
 def download(*args, **kwargs):
@@ -135,11 +139,16 @@ def download_book(url, page_start=0, page_end=None):
         page = page0 + page_start
         page_url = get_page_url(info["prefix"], page_id)
         page_html = download(page_url, opener=opener)
+        try:
+           page_html = page_html.decode()
+        except:
+           page_html = page_html.decode("iso8859-15")
+        page_html = codecs.decode(page_html, 'unicode_escape')
         image_url0 = get_image_url_from_page(page_html)
         if image_url0:
             width, height = info["max_resolution"]
-            image_url = re.sub(b"w=(\d+)", "w=" + str(width), image_url0)
-            image_data = download(image_url, opener=opener)
+            image_url = re.sub("w=(\d+)", "w=" + str(width), image_url0)
+            image_data = download(str(image_url), opener=opener)
             yield info, page, image_data
 
 

@@ -28,7 +28,7 @@ setup_kwargs = dict(
     long_description=' '.join(__doc__.strip().splitlines()),
     data_files=[
         ('share/pysheng',
-            ('pysheng/main.glade',))
+            ('pysheng/main.ui',))
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

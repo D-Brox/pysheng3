@@ -1,0 +1,4 @@
+chardet
+pycairo
+PyGObject
+urllib3

@@ -19,8 +19,9 @@ import os
 import re
 import sys
 import itertools
-from html.parser import HTMLParser
+import html
 import codecs
+import chardet
 
 try:
     # Python >= 2.6
@@ -59,25 +60,18 @@ def get_cover_url(book_id):
 
 
 def get_unescape_entities(s):
-    parser = HTMLParser()
+    parser = html
     return parser.unescape(s)
 
 
 def get_info(cover_html):
     """Return dictionary with the book information.
     Include the prefix, page_ids, title and attribution."""
-    tag = pysheng.lib.first(s for s in cover_html.split(b"<") if re.search(b'input[^>]*\s+name="?ie"?', s))
-    if tag:
-        match = re.search(b'value="(.*?)"', tag)
-        if not match:
-            raise ParsingError('Cannot find encoding info')
-        encoding = match.group(1).lower()
-    else:
-        encoding = "iso8859-15"
-    match = re.search(r'_OC_Run\((.*?)\);', cover_html.decode("iso8859-15"))
+    encoding = chardet.detect(cover_html)["encoding"]
+    match = re.search(r'_OC_Run\((.*?)\);', cover_html.decode(encoding))
     if not match:
         raise ParsingError('No JS function OC_Run() found in HTML')
-    oc_run_args = json.loads("[%s]" % match.group(1), encoding=encoding)
+    oc_run_args = json.loads("[%s]" % match.group(1))
     if len(oc_run_args) < 2:
         raise ParsingError('Expecting at least 2 arguments in function: '
                            'OC_Run()')

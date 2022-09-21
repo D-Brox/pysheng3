@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 # Copyright (c) Arnau Sanchez <tokland@gmail.com>
 
@@ -22,7 +22,6 @@ import gobject
 import functools
 
 from pysheng import asyncjobs
-from pysheng.yieldfrom import supergenerator, _from
 
 
 TESTS_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -74,14 +73,14 @@ def test_job(state, force_continue_after_cancel=False):
         state.job_result = "!cancelled"
         if not force_continue_after_cancel:
             return
-    except Exception, ex:
+    except Exception as ex:
         state.job_result = ex
         return
     try:
         state.job_result2 = yield TestTask()
     except asyncjobs.JobCancelled:
         state.job_result2 = "!cancelled"
-    except Exception, ex:
+    except Exception as ex:
         state.job_result2 = ex
 
 
@@ -189,8 +188,7 @@ class TestThreadedTask(unittest.TestCase):
     def setUp(self):
         self.state = State()
         self.loop = gobject.MainLoop()
-        self.job = asyncjobs.Job(threaded_task(self.state, self.loop, myfunc,
-                                 2, 3))
+        self.job = asyncjobs.Job(threaded_task(self.state, self.loop, myfunc, 2, 3))
 
     def test_task(self):
         self.job.join()
@@ -225,8 +223,7 @@ def threaded_task(state, loop, url):
     state.result = None
     cb = functools.partial(elapsed_cb, state)
     state.callback = []
-    state.result = \
-        yield asyncjobs.ProgressDownloadThreadedTask(url, elapsed_cb=cb)
+    state.result = yield asyncjobs.ProgressDownloadThreadedTask(url, elapsed_cb=cb)
 
 
 def elapsed_cb(state, elapsed, total):

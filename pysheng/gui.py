@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 # Copyright (c) Arnau Sanchez <tokland@gmail.com>
 
@@ -22,14 +22,11 @@ import time
 import glob
 import traceback
 import functools
-from io import StringIO, BytesIO
-import string
+from io import BytesIO
 import imghdr
 
-import gi
-gi.require_version('Gtk', '3.0')
+import chardet
 from gi.repository import Gtk
-import gobject
 
 from pysheng import lib
 from pysheng import asyncjobs
@@ -77,7 +74,7 @@ def get_debug_func(widgets):
 
     def _debug(line):
         stime = time.strftime("%H:%M:%S", time.localtime())
-        buf.insert(buf.get_end_iter(), "[%s] %s\n" % (stime, line))
+        buf.insert(buf.get_end_iter(), f"[{stime}] {line}\n")
         widgets.log.scroll_to_iter(buf.get_end_iter(), 0,True,0,0)
     return _debug
 
@@ -90,7 +87,7 @@ def adj_int(value, adjvalue, default=None):
 
 def set_book_info(widgets, info):
     def italic(s):
-        return "<i>%s</i>" % s
+        return f"<i>{s}</i>"
     if info:
         widgets.title.set_markup(italic(str(info["title"] or "-")))
         widgets.attribution.set_markup(italic(str(info["attribution"] or "-")))
@@ -109,10 +106,10 @@ def string_to_valid_filename(s, lengthlimit=240):
 def on_elapsed(widgets, name, elapsed, total):
     if total is not None:
         widgets.progress_current.set_fraction(float(elapsed)/total)
-        name += " (%d bytes)" % total
+        name += f" ({total} bytes)"
     else:
         widgets.progress_current.pulse()
-    widgets.progress_current.set_text("Downloading %s..." % name)
+    widgets.progress_current.set_text(f"Downloading {name}...")
 
 
 def escape_glob(path):
@@ -131,13 +128,13 @@ def get_info(widgets, url, opener):
     try:
         info = get_info_download(html)
     except ValueError as detail:
-        debug("Error parsing page HTML: %s" % str(detail))
+        debug(f"Error parsing page HTML: {detail}")
         raise
-    debug("Info: attribution=%s" % info["attribution"])
-    debug("Info: title=%s" % info["title"])
-    debug("Info: total pages=%s" % len(info["page_ids"]))
+    debug(f"Info: attribution={info['attribution']}")
+    debug(f"Info: title={info['title']}")
+    debug(f"Info: total pages={len(info['page_ids'])}")
     set_book_info(widgets, info)
-    raise StopIteration(info)
+    return info
 
 
 @supergenerator
@@ -150,12 +147,11 @@ def download_book(widgets, state, url, page_start=0, page_end=None):
         debug = widgets.debug
         set_sensitivity(widgets, check=False, savepdf=False)
 
-        debug("Output directory: %s" % destdir)
-        debug("Page_start: %s, Page end: %s" %
-              (adj_int(page_start, +1, 1), adj_int(page_end, +1, "last")))
+        debug(f"Output directory: {destdir}")
+        debug(f"Page_start: {adj_int(page_start, 1, 1)}, Page end: {adj_int(page_end, 1, 'last')}")
         opener = lib.get_cookies_opener()
         book_id = get_id_from_string(url)
-        debug("Book ID: %s" % book_id)
+        debug(f"Book ID: {book_id}")
         cover_url = get_cover_url(book_id)
         widgets.progress_all.set_fraction(0.0)
         widgets.progress_all.set_text('')
@@ -168,32 +164,29 @@ def download_book(widgets, state, url, page_start=0, page_end=None):
         if not widgets.page_end.get_text():
             widgets.page_end.set_text(str(len(info["page_ids"])))
         page_ids = info["page_ids"][page_start:adj_int(page_end, +1)]
-        namespace = dict(title=info["title"], attribution=info["attribution"])
-        dirname = string_to_valid_filename("%(attribution)s - %(title)s" %
-                                           namespace)
+        title=info["title"]
+        attribution=info["attribution"]
+        dirname = string_to_valid_filename(f"{attribution} - {title}")
         output_directory = os.path.join(destdir, dirname)
         lib.mkdir_p(output_directory)
         images = []
 
         for page, page_id in enumerate(page_ids):
             page += page_start
-            filename = "%(page)03d" % dict(namespace, page=page+1)
+            filename = f"{(page+1):03d}"
             output_path = os.path.join(output_directory, filename)
             existing_files = glob.glob(escape_glob(output_path) + ".*")
             if existing_files:
-                debug("Skip existing image: %s" % existing_files[0])
+                debug(f"Skip existing image: {existing_files[0]}")
                 images.append(existing_files[0])
                 continue
             relative_page = page - page_start + 1
-            widgets.progress_all.set_fraction(float(relative_page-1) /
-                                              len(page_ids))
-            widgets.progress_all.set_text(
-                "Total: %d%%" % (int(100*float(relative_page-1) /
-                                 len(page_ids))))
-            header = "[%d/%d] " % (relative_page, len(page_ids))
-            debug(header + "Start page: %d (page_id: %s)" % (page+1, page_id))
+            widgets.progress_all.set_fraction(float(relative_page-1) / len(page_ids))
+            widgets.progress_all.set_text(f"Total: {100*float(relative_page-1)//len(page_ids)}%")
+            header = f"[{relative_page}/{len(page_ids)}]"
+            debug(f"{header}Start page: {page+1} (page_id: {page_id})")
             page_url = get_page_url(info["prefix"], page_id)
-            debug(header + "Download page contents: %s" % (page_url))
+            debug(f"{header}Download page contents: {page_url}")
             widgets.progress_current.set_fraction(0.0)
             page_html = yield asyncjobs.ProgressDownloadThreadedTask(
                 page_url, opener, headers=HEADERS,
@@ -203,21 +196,20 @@ def download_book(widgets, state, url, page_start=0, page_end=None):
             if not image_url0:
                 debug("No image for this page, access may be restricted")
             else:
-                width, height = info["max_resolution"]
-                image_url = re.sub(b"w=(\d+)", "w=" + str(width), image_url0)
-                image_url = image_url.decode("ascii").replace('\\x3d','=').replace('\\x26','&')
-                debug(header + "Download page image: %s" % image_url)
+                width, _ = info["max_resolution"]
+                encoding = chardet.detect(image_url)["encoding"]
+                image_url = image_url.decode(encoding)
+                image_url = re.sub(r"w=(\d+)", "w=" + str(width), image_url0)
+                debug(f"{header}Download page image: {image_url}")
                 widgets.progress_current.set_fraction(0.0)
                 image_data = yield asyncjobs.ProgressDownloadThreadedTask(
                     image_url, opener, headers=HEADERS,
                     elapsed_cb=functools.partial(on_elapsed, widgets, "image"))
                 image_format = imghdr.what(BytesIO(image_data)) or "png"
-                debug(header + "Image downloaded (size=%d, format=%s)" %
-                      (len(image_data), image_format))
+                debug(f"{header}Image downloaded (size={len(image_data)}, format={image_format})")
                 output_path_with_extension = output_path + "." + image_format
                 createfile(output_path_with_extension, image_data)
-                debug(header + "Image written: %s" %
-                      output_path_with_extension)
+                debug(f"{header}Image written: {output_path_with_extension}")
                 images.append(output_path_with_extension)
 
         widgets.progress_all.set_fraction(1.0)
@@ -226,28 +218,28 @@ def download_book(widgets, state, url, page_start=0, page_end=None):
         restart_buttons(widgets)
         state.downloaded_images = images
 
-        if namespace["attribution"]:
-            state.pdf_filename = "%(attribution)s - %(title)s.pdf" % namespace
+        if attribution:
+            state.pdf_filename = f"{attribution} - {title}.pdf"
         else:
-            state.pdf_filename = "%(title)s.pdf" % namespace
+            state.pdf_filename = f"{title}.pdf"
         set_sensitivity(widgets, savepdf=True)
     except asyncjobs.JobCancelled:
         return
     except Exception as detail:
         traceback.print_exc()
-        debug("job error: %s" % detail)
+        debug(f"job error: {detail}")
         restart_buttons(widgets)
-    
+
 
 @supergenerator
 def check_book(widgets, url):
     set_sensitivity(widgets, url=False, check=False, start=False, cancel=True)
     debug = widgets.debug
-    debug("Checking book: %s" % url)
+    debug(f"Checking book: {url}")
     try:
         opener = lib.get_cookies_opener()
         book_id = get_id_from_string(url)
-        debug("Book ID: %s" % book_id)
+        debug(f"Book ID: {book_id}")
         cover_url = get_cover_url(book_id)
         set_book_info(widgets, None)
         info = yield _from(get_info(widgets, cover_url, opener))
@@ -378,10 +370,10 @@ def on_savepdf__clicked(button, widgets, state):
         try:
             lib.create_pdf_from_images(state.downloaded_images, output_pdf,
                                        pagesize=pagesizes.A4, margin=0*cm)
-            widgets.debug("PDF written: %s" % output_pdf)
+            widgets.debug(f"PDF written: {output_pdf}")
         except Exception as exception:
             traceback.print_exc()
-            widgets.debug("error creating PDF: %s" % exception)
+            widgets.debug(f"error creating PDF: {exception}")
     chooser.destroy()
 
 ###
@@ -406,8 +398,7 @@ def set_callbacks(namespace, widgets, state):
             signals = [signals]
         for signal in signals:
             widget = getattr(widgets, widget_name)
-            callback = namespace["on_%s__%s" % (widget_name,
-                                                signal.replace("-", "_"))]
+            callback = namespace[f"on_{widget_name}__{signal.replace('-','_')}"]
             widget.connect(signal, callback, widgets, state)
 
 
@@ -426,7 +417,7 @@ def load_glade(filename, root, widget_names):
     for name in widget_names:
         widget = wtree.get_object(name)
         if not widget:
-            raise ValueError('Widget name not found: %s' % name)
+            raise ValueError(f'Widget name not found: {name}')
         dwidgets[name] = widget
     return lib.Struct(**dwidgets)
 
@@ -452,8 +443,7 @@ def run(book_url=None):
     widgets = load_glade(filepath, "window", widget_names)
     state = State()
     widgets.debug = get_debug_func(widgets)
-    widgets.window.set_title("PySheng v%s: Google Books downloader" %
-                             pysheng.VERSION)
+    widgets.window.set_title(f"PySheng v{pysheng.VERSION}: Google Books downloader")
     view_init(widgets)
     set_callbacks(globals(), widgets, state)
     if book_url:
@@ -462,7 +452,7 @@ def run(book_url=None):
 
 
 def main(args):
-    widgets, state = run(args[0] if args else None)
+    widgets, _ = run(args[0] if args else None)
     widgets.window.show_all()
     Gtk.main()
 

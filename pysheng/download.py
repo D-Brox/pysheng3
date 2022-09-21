@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 # Copyright (c) Arnau Sanchez <tokland@gmail.com>
 
@@ -15,19 +15,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this software.  If not, see <http://www.gnu.org/licenses/>
 
+import argparse
+import codecs
+import html as HTML
+import itertools
+import json
 import os
 import re
 import sys
-import itertools
-import html
-import codecs
-import chardet
 
-try:
-    # Python >= 2.6
-    import json
-except ImportError:
-    import simplejson as json
+import chardet
 
 import pysheng.lib
 
@@ -43,15 +40,15 @@ def get_id_from_string(s):
     if "/" not in s:
         return s
     url = s
-    match = re.search("[?&]?id=([^&]+)", url)
+    match = re.search(r"[?&]?id=([^&]+)", url)
     if match:
         return match.group(1)
-    else:
-         match = re.search("[^/]+(?=\?)",url)
-         return match.group(0)
-         
-    if not match:
-        raise ParsingError(f'Error extracting id query string from URL: {url}')
+
+    match = re.search(r"[^/]+(?=\?)",url)
+    if match:
+        return match.group(0)
+
+    raise ParsingError(f'Error extracting id query string from URL: {url}')
 
 
 def get_cover_url(book_id):
@@ -60,7 +57,7 @@ def get_cover_url(book_id):
 
 
 def get_unescape_entities(s):
-    parser = html
+    parser = HTML
     return parser.unescape(s)
 
 
@@ -71,7 +68,7 @@ def get_info(cover_html):
     match = re.search(r'_OC_Run\((.*?)\);', cover_html.decode(encoding))
     if not match:
         raise ParsingError('No JS function OC_Run() found in HTML')
-    oc_run_args = json.loads("[%s]" % match.group(1))
+    oc_run_args = json.loads(f"[{match.group(1)}]")
     if len(oc_run_args) < 2:
         raise ParsingError('Expecting at least 2 arguments in function: '
                            'OC_Run()')
@@ -99,12 +96,12 @@ def get_image_url_from_page(html):
     """Get image from a page html."""
     if "/googlebooks/restricted_logo.gif" in html:
         return
-    else:
-        match = re.search("preloadImg.src = '([^']*?)'", html)
-        if not match:
-            raise ParsingError('No image found in HTML page')
-        else:
-            return match.group(1)
+
+    match = re.search(r"preloadImg.src = '([^']*?)'", html)
+    if not match:
+        raise ParsingError('No image found in HTML page')
+
+    return match.group(1)
 
 
 def get_page_url(prefix, page_id):
@@ -133,21 +130,17 @@ def download_book(url, page_start=0, page_end=None):
         page = page0 + page_start
         page_url = get_page_url(info["prefix"], page_id)
         page_html = download(page_url, opener=opener)
-        try:
-           page_html = page_html.decode()
-        except:
-           page_html = page_html.decode("iso8859-15")
+        page_html = page_html.decode()
         page_html = codecs.decode(page_html, 'unicode_escape')
         image_url0 = get_image_url_from_page(page_html)
         if image_url0:
-            width, height = info["max_resolution"]
+            width, _ = info["max_resolution"]
             image_url = re.sub("w=(\d+)", "w=" + str(width), image_url0)
             image_data = download(str(image_url), opener=opener)
             yield info, page, image_data
 
 
 def main(args):
-    import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--page-start', dest='page_start', type=int,
                         default=1, help='Start page')
@@ -165,6 +158,8 @@ def main(args):
     args = parser.parse_args(args)
 
     url = args.url
+    page_start = args.page_start - 1
+    page_end = args.page_end
     info = get_info_from_url(url)
     namespace = dict(title=info["title"], attribution=info["attribution"])
     if args.output_directory:
@@ -173,17 +168,17 @@ def main(args):
         output_directory = "%(attribution)s - %(title)s" % namespace
     pysheng.lib.mkdir_p(output_directory)
 
-    for page_info, page, image_data in\
-            download_book(url, args.page_start - 1, args.page_end):
-        filename = "%03d.png" % (page + 1)
+    for _, page, image_data in download_book(url, page_start, page_end):
+        filename = f"{(page+1):03d}.png"
         output_path = os.path.join(output_directory, filename)
         if not ((os.path.isfile(output_path) and
                  args.noredownload)):
-            open(output_path, "wb").write(image_data)
+            with open(output_path, "wb") as f:
+                f.write(image_data)
             if not args.quiet:
-                print ('Downloaded {}'.format(output_path.encode('utf-8')))
+                print (f"Downloaded {output_path.encode('utf-8')}")
         elif not args.quiet:
-            print ('Output file {} exists'.format(output_path.encode('utf-8')))
+            print(f"Output file {output_path.encode('utf-8')} exists")
 
 
 if __name__ == '__main__':

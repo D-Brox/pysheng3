@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 """Download books from Google Books."""
 
 from pysheng import VERSION

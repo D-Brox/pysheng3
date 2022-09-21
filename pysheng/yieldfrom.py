@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 """Pure Python implementation of PEP-380 (yield from)."""
 from functools import wraps
 

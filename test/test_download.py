@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 import unittest
 import os
 
@@ -22,7 +22,8 @@ class TestLibrary(unittest.TestCase):
                              'id=2TowtKyI27wC'))
 
     def test_get_info(self):
-        htmlcover = open(os.path.join(HTML_DIR, "cover.html")).read()
+        with open(os.path.join(HTML_DIR, "cover.html"),'r') as f:
+            htmlcover = f.read()
         info = pysheng.get_info(htmlcover)
         self.assertEqual('http://books.google.com/books?id=2TowtKyI27wC&'
                          'lpg=PP1&ie=ISO-8859-1', info["prefix"])
@@ -31,7 +32,8 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual("Anthony Blunt", info["attribution"])
 
     def test_get_image_url_from_page(self):
-        htmlpage = open(os.path.join(HTML_DIR, "page.html")).read()
+        with open(os.path.join(HTML_DIR, "page.html"),"r") as f:
+            htmlpage = f.read()
         image_url = pysheng.get_image_url_from_page(htmlpage)
         self.assertEqual('http://books.google.es/books?id=2TowtKyI27wC&'
                          'pg=PP1&img=1&zoom=3&hl=es&'

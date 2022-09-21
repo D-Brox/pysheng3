@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 """
 Asynchronous jobs using co-routines and gobject.
 
@@ -31,16 +31,17 @@ http://code.activestate.com/recipes/577129-run-asynchronous-tasks-using-coroutin
 # You should have received a copy of the GNU General Public License
 # along with this software.  If not, see <http://www.gnu.org/licenses/>
 
-import time
-from threading import Thread, Event
-from queue import Queue, Empty
-from io import BytesIO
-import urllib.request as urllib2
 import functools
+import time
+import urllib.request as urllib2
+from io import BytesIO
+from queue import Queue
+from threading import Event, Thread
 
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import GObject as gobject
+
 gobject.threads_init()
 
 JobCancelled = GeneratorExit
@@ -50,6 +51,7 @@ class TaskError(Exception):
     """Something wrong was detected inside a task and it must be aborted."""
     def __init__(self, reason):
         self.reason = reason
+        super().__init__()
 
     def __str__(self):
         return str(self.reason)
@@ -127,11 +129,10 @@ class Job:
     def _advance_task_cb(self, generator, method, result):
         self.current_task = None
         while 1:
-            generator, method, result = \
-                self._advance_task_step(generator, method, result)
+            generator, method, result = self._advance_task_step(generator, method, result)
             if not generator:
                 return
-            elif method == "new_task":
+            if method == "new_task":
                 task = result
                 break
         self._start_task(task, generator)
@@ -139,25 +140,23 @@ class Job:
     def _advance_task_step(self, generator, method, result):
         try:
             new_task = getattr(generator, method)(result)
-        except StopIteration as exc:
+        except StopIteration:
             self._state = "finished"
             return None, None, None
-        except Exception as exc:
+        except Exception:
             generator.close()
             self._state = "finished"
             raise
         if isinstance(new_task, Task):
             task = new_task
             return generator, "new_task", task
-        else:
-            msg = "A job can only yield tasks, got: %s" % \
-                new_task
-            raise ValueError(msg)
+
+        msg = f"A job can only yield tasks, got: {new_task}"
+        raise ValueError(msg)
 
     def _check_state(self, *expected):
         if self._state not in expected:
-            msg = "Job current state is '%s', expected was '%s'" % \
-                (self._state, "/".join(expected))
+            msg = f"Job current state is '{self._state}', expected was '{'/'.join(expected)}'"
             raise ValueError(msg)
 
 # Tasks

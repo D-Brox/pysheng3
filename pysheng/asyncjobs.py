@@ -283,7 +283,7 @@ class ThreadedTask(Task):
     @propagate_exceptions
     def _thread_receiver(self, queue):
         if queue.empty():
-            if not thread.isAlive():
+            if not thread.is_alive():
                 self.exception_cb(TaskError('thread is dead but the queue '
                                             'is empty'))
                 return False
@@ -366,7 +366,7 @@ class ProgressDownloadThreadedTask(Task):
     def _thread_receiver(self):
         if self.pause_event.isSet():
             return True
-        elif not self.thread.isAlive() and self.queue.empty():
+        elif not self.thread.is_alive() and self.queue.empty():
             self.exception_cb(TaskError('thread is dead but the queue is '
                                         'empty'))
             return False

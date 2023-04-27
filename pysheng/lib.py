@@ -30,7 +30,7 @@ class Struct:
         self.__dict__.update(entries)
 
     def __repr__(self):
-        args = ('%s=%s' % (k, repr(v)) for (k, v) in vars(self).iteritems())
+        args = ('%s=%s' % (k, repr(v)) for (k, v) in vars(self).items())
         return 'Struct(%s)' % (', '.join(args))
 
 

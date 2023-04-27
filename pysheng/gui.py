@@ -26,6 +26,8 @@ from io import BytesIO
 import imghdr
 
 import chardet
+import gi
+gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
 from pysheng import lib
@@ -443,7 +445,7 @@ def run(book_url=None):
     widgets = load_glade(filepath, "window", widget_names)
     state = State()
     widgets.debug = get_debug_func(widgets)
-    widgets.window.set_title(f"PySheng v{pysheng.VERSION}: Google Books downloader")
+    widgets.window.set_title(f"PySheng v{pysheng.__version__}: Google Books downloader")
     view_init(widgets)
     set_callbacks(globals(), widgets, state)
     if book_url:

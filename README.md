@@ -39,6 +39,7 @@ Usage
 
 ### Using the GUI
 
+Currently only works if you have Gtk3 installed. I tried porting to Gtk4, but the ABI changed a lot and I would need modify a lot in the ui file and code.
 
 Note that in order to save a PDF you need [ReportLab](http://www.reportlab.com/software/opensource/) installed.
 

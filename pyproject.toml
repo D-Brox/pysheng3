@@ -1,0 +1,32 @@
+[project]
+name = "pysheng3"
+version = "0.1.1"
+description = "Download books from Google Books"
+authors = [
+    {name = "Arnau Sanchez", email = "tokland@gmail.com"},
+    {name = "David Brochero", email = "davidfbg00@gmail.com"},
+]
+dependencies = ["chardet", "pycairo", "PyGObject", "urllib3"]
+requires-python = ">=3.8"
+license = {text = "GNU Public License v3.0"}
+classifiers = [
+    'Development Status :: 3 - Alpha',
+    'Intended Audience :: End Users/Desktop',
+    'License :: OSI Approved :: GNU General Public License (GPL)',
+    'Natural Language :: English',
+    'Operating System :: POSIX',
+    'Programming Language :: Python',
+    'Topic :: Internet :: WWW/HTTP'
+]
+
+[project.scripts]
+pysheng = "pysheng:console"
+
+[project.gui-scripts]
+pysheng-gui = "pysheng:gui"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pysheng = ["*.ui"]

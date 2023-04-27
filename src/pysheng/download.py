@@ -16,7 +16,7 @@
 # along with this software.  If not, see <http://www.gnu.org/licenses/>
 
 import argparse
-import codecs
+# import codecs
 import html as HTML
 import itertools
 import json
@@ -130,8 +130,9 @@ def download_book(url, page_start=0, page_end=None):
         page = page0 + page_start
         page_url = get_page_url(info["prefix"], page_id)
         page_html = download(page_url, opener=opener)
-        page_html = page_html.decode()
-        page_html = codecs.decode(page_html, 'unicode_escape')
+        encoding = chardet.detect(page_html)["encoding"]
+        page_html = page_html.decode(encoding)
+        # page_html = codecs.decode(page_html, 'unicode_escape')
         image_url0 = get_image_url_from_page(page_html)
         if image_url0:
             width, _ = info["max_resolution"]
